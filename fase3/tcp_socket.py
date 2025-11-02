@@ -5,6 +5,16 @@ import time
 import random
 from typing import Optional, Tuple
 
+# Importa o sistema de logging do projeto
+try:
+    from ..utils.logger import ProtocolLogger
+except ImportError:
+    # Para execução direta do arquivo
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from utils.logger import ProtocolLogger
+
 # Exceções TCP
 class TCPError(Exception):
     """Exceção base para erros TCP."""
@@ -689,9 +699,28 @@ class ConnectionManager:
         """
         try:
             data = segment.pack()
+            
+            # Log detalhado do segmento enviado
+            flags_str = []
+            if segment.has_flag(TCP_SYN):
+                flags_str.append("SYN")
+            if segment.has_flag(TCP_ACK):
+                flags_str.append("ACK")
+            if segment.has_flag(TCP_FIN):
+                flags_str.append("FIN")
+            if segment.has_flag(TCP_RST):
+                flags_str.append("RST")
+            if segment.has_flag(TCP_PSH):
+                flags_str.append("PSH")
+            
+            flags_display = ",".join(flags_str) if flags_str else "NONE"
+            
+            # Log detalhado do pacote enviado
+            self.socket_ref._log_packet_transmission(segment, dest_addr, "SEND")
+            
             self.socket_ref.udp_socket.sendto(data, dest_addr)
         except Exception as e:
-            # Log do erro (em implementação real, usar logging)
+            # Log do erro
             print(f"Erro ao enviar segmento: {e}")
     
     def handle_segment(self, segment: TCPSegment, addr: Tuple[str, int]) -> None:
@@ -1158,6 +1187,9 @@ class SimpleTCPSocket:
         Args:
             port: Porta local para bind (0 para porta automática)
         """
+        # Configura logger específico para este socket usando o sistema do projeto
+        self.protocol_logger = ProtocolLogger(f'SimpleTCP-{port}')
+        self.protocol_logger.start_session()
         # Socket UDP subjacente
         self.udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -1222,6 +1254,103 @@ class SimpleTCPSocket:
         self.out_of_order_segments = {}  # {seq_num: segment_data}
         self.receive_lock = threading.Lock()
         self.next_expected_seq = 0  # Próximo número de sequência esperado
+    
+    def _log_packet_transmission(self, segment: TCPSegment, dest_addr: Tuple[str, int], direction: str = "SEND"):
+        """
+        Registra transmissão ou recepção de pacote no logger do protocolo.
+        
+        Args:
+            segment: Segmento TCP
+            dest_addr: Endereço de destino/origem
+            direction: "SEND" ou "RECV"
+        """
+        # Determina flags do segmento
+        flags = []
+        if segment.has_flag(TCP_SYN):
+            flags.append("SYN")
+        if segment.has_flag(TCP_ACK):
+            flags.append("ACK")
+        if segment.has_flag(TCP_FIN):
+            flags.append("FIN")
+        if segment.has_flag(TCP_RST):
+            flags.append("RST")
+        if segment.has_flag(TCP_PSH):
+            flags.append("PSH")
+        
+        packet_type = ",".join(flags) if flags else "DATA"
+        
+        # Registra no logger do protocolo
+        if direction == "SEND":
+            self.protocol_logger.log_transmission(
+                packet_type=packet_type,
+                seq_num=segment.seq_num,
+                data_size=len(segment.data),
+                protocol_overhead=20  # Tamanho do cabeçalho TCP
+            )
+        else:  # RECV
+            self.protocol_logger.log_reception(
+                packet_type=packet_type,
+                seq_num=segment.seq_num,
+                data_size=len(segment.data),
+                success=True
+            )
+        
+        # Log detalhado no console
+        flags_display = ",".join(flags) if flags else "NONE"
+        if direction == "SEND":
+            print(f"[SEND] {self.local_port} -> {dest_addr[1]} | "
+                  f"Seq={segment.seq_num} Ack={segment.ack_num} "
+                  f"Flags=[{flags_display}] Win={segment.window_size} "
+                  f"Len={len(segment.data)} bytes")
+        else:
+            print(f"[RECV] {dest_addr[1]} -> {self.local_port} | "
+                  f"Seq={segment.seq_num} Ack={segment.ack_num} "
+                  f"Flags=[{flags_display}] Win={segment.window_size} "
+                  f"Len={len(segment.data)} bytes")
+    
+    def _log_retransmission(self, segment: TCPSegment, reason: str):
+        """
+        Registra retransmissão no logger do protocolo.
+        
+        Args:
+            segment: Segmento retransmitido
+            reason: Motivo da retransmissão
+        """
+        self.protocol_logger.log_retransmission(
+            reason=reason,
+            packet_type="DATA",
+            seq_num=segment.seq_num
+        )
+    
+    def _log_timeout(self, seq_num: int):
+        """
+        Registra timeout no logger do protocolo.
+        
+        Args:
+            seq_num: Número de sequência que sofreu timeout
+        """
+        self.protocol_logger.log_timeout(seq_num=seq_num)
+    
+    def get_protocol_statistics(self) -> dict:
+        """
+        Retorna estatísticas do protocolo coletadas pelo logger.
+        
+        Returns:
+            dict: Estatísticas completas do protocolo
+        """
+        return self.protocol_logger.get_statistics()
+    
+    def generate_protocol_report(self, detailed: bool = False) -> str:
+        """
+        Gera relatório de desempenho do protocolo.
+        
+        Args:
+            detailed: Se deve incluir detalhes dos eventos
+            
+        Returns:
+            str: Relatório formatado
+        """
+        return self.protocol_logger.generate_report(detailed=detailed)
     
     def _start_receive_thread(self) -> None:
         """
@@ -1316,6 +1445,24 @@ class SimpleTCPSocket:
             # Filtra segmentos destinados a outras portas
             if segment.dest_port != self.local_port:
                 return
+            
+            # Log detalhado do segmento recebido
+            flags_str = []
+            if segment.has_flag(TCP_SYN):
+                flags_str.append("SYN")
+            if segment.has_flag(TCP_ACK):
+                flags_str.append("ACK")
+            if segment.has_flag(TCP_FIN):
+                flags_str.append("FIN")
+            if segment.has_flag(TCP_RST):
+                flags_str.append("RST")
+            if segment.has_flag(TCP_PSH):
+                flags_str.append("PSH")
+            
+            flags_display = ",".join(flags_str) if flags_str else "NONE"
+            
+            # Log detalhado do pacote recebido
+            self._log_packet_transmission(segment, addr, "RECV")
             
             # Processa segmento de forma thread-safe
             # O lock garante que apenas uma thread processe segmentos por vez
@@ -1629,6 +1776,8 @@ class SimpleTCPSocket:
                 # Reinicia timer com backoff exponencial
                 self._start_retransmission_timer(segment, new_retransmit_count)
                 
+                # Log da retransmissão
+                self._log_retransmission(segment, f"timeout (tentativa {new_retransmit_count})")
                 print(f"Retransmitindo segmento {seq_num} (tentativa {new_retransmit_count}/{self.max_retransmit_attempts})")
                 
             except Exception as e:
@@ -2220,8 +2369,33 @@ class SimpleTCPSocket:
     def clear_unacked_segments(self) -> None:
         """
         Limpa todos os segmentos não confirmados e seus timers.
-        Usado durante encerramento de conexão ou reset.
         """
+        with self.send_lock:
+            for seq_num, segment_info in list(self.unacked_segments.items()):
+                if len(segment_info) >= 3 and segment_info[2]:
+                    # Cancela timer se existir
+                    segment_info[2].cancel()
+            
+            self.unacked_segments.clear()
+    
+    def finalize_logging(self):
+        """
+        Finaliza a sessão de logging e retorna estatísticas.
+        
+        Returns:
+            dict: Estatísticas completas do protocolo
+        """
+        self.protocol_logger.end_session()
+        return self.protocol_logger.get_statistics()
+    
+    def export_protocol_logs(self, filename: str):
+        """
+        Exporta logs do protocolo para arquivo CSV.
+        
+        Args:
+            filename: Nome do arquivo CSV
+        """
+        self.protocol_logger.export_events_csv(filename)
         with self.send_lock:
             for seq_num, segment_info in self.unacked_segments.items():
                 if len(segment_info) >= 3 and segment_info[2]:

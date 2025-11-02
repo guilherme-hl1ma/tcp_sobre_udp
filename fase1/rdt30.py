@@ -8,6 +8,16 @@ import threading
 import time
 from typing import Optional, Tuple, Any
 
+# Importa o sistema de logging do projeto
+try:
+    from ..utils.logger import ProtocolLogger
+except ImportError:
+    # Para execução direta do arquivo
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from utils.logger import ProtocolLogger
+
 from utils.packet import RDT21Packet, Packet, PacketError
 from utils.simulator import UnreliableChannel
 from utils.logger import ProtocolLogger
@@ -117,7 +127,7 @@ class RDT30Sender(RDT21Sender):
                         hasattr(packet, 'seq_num') and 
                         packet.seq_num == self.seq_num):
                         
-                        self.logger.log_reception("ACK", success=True)
+                        self.logger.log_reception("ACK", seq_num=packet.seq_num, success=True)
                         return True
                     
                 except socket.timeout:

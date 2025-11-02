@@ -17,9 +17,16 @@ import time
 import argparse
 try:
     from .tcp_socket import SimpleTCPSocket, ConnectionTimeout, ConnectionRefused
+    from ..utils.logger import ProtocolLogger
 except ImportError:
     # Para execução direta do arquivo
     from tcp_socket import SimpleTCPSocket, ConnectionTimeout, ConnectionRefused
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from utils.logger import ProtocolLogger
+
+# Configura logger para o cliente
+client_logger = ProtocolLogger('TCPClient')
 
 
 def run_client(server_host: str = 'localhost', server_port: int = 8080, 

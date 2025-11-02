@@ -8,6 +8,16 @@ import threading
 import time
 from typing import Optional, Tuple, Any
 
+# Importa o sistema de logging do projeto
+try:
+    from ..utils.logger import ProtocolLogger
+except ImportError:
+    # Para execução direta do arquivo
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from utils.logger import ProtocolLogger
+
 from utils.packet import RDT21Packet, Packet, PacketError
 from utils.simulator import UnreliableChannel
 from utils.logger import ProtocolLogger
@@ -114,6 +124,7 @@ class RDT21Sender(RDT20Sender):
         # Registrar transmissão
         self.logger.log_transmission(
             packet_type=packet.get_type_name(),
+            seq_num=packet.seq_num,
             data_size=len(packet.data),
             protocol_overhead=len(serialized) - len(packet.data)
         )
@@ -145,15 +156,15 @@ class RDT21Sender(RDT20Sender):
             if hasattr(self._response_packet, 'seq_num'):
                 if self._response_packet.seq_num == self.seq_num:
                     # ACK com número de sequência correto
-                    self.logger.log_reception("ACK", success=True)
+                    self.logger.log_reception("ACK", seq_num=self._response_packet.seq_num, success=True)
                     return True
                 else:
                     # ACK com número de sequência incorreto (duplicado)
-                    self.logger.log_reception("ACK duplicado", success=False)
+                    self.logger.log_reception("ACK", seq_num=self._response_packet.seq_num, success=False)
                     return False
             else:
                 # ACK sem número de sequência (compatibilidade com RDT 2.0)
-                self.logger.log_reception("ACK", success=True)
+                self.logger.log_reception("ACK", seq_num=None, success=True)
                 return True
                 
         except Exception as e:
@@ -282,6 +293,7 @@ class RDT21Receiver(RDT20Receiver):
             # Registrar recepção
             self.logger.log_reception(
                 packet_type=packet.get_type_name(),
+                seq_num=packet.seq_num,
                 data_size=len(packet.data),
                 success=True
             )
@@ -307,7 +319,7 @@ class RDT21Receiver(RDT20Receiver):
                     return packet
                 else:
                     # Pacote duplicado - descartar e reenviar ACK anterior
-                    self.logger.log_reception("DATA duplicado", success=False)
+                    self.logger.log_reception("DATA", seq_num=packet.seq_num, success=False)
                     
                     # Reenviar ACK do pacote anterior
                     if self.last_ack_seq is not None:
@@ -350,6 +362,7 @@ class RDT21Receiver(RDT20Receiver):
             # Registrar transmissão
             self.logger.log_transmission(
                 packet_type=ack_packet.get_type_name(),
+                seq_num=seq_num,
                 data_size=0,
                 protocol_overhead=len(serialized)
             )
@@ -383,6 +396,7 @@ class RDT21Receiver(RDT20Receiver):
             # Registrar transmissão
             self.logger.log_transmission(
                 packet_type=nak_packet.get_type_name(),
+                seq_num=0,
                 data_size=0,
                 protocol_overhead=len(serialized)
             )

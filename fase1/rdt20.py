@@ -8,6 +8,16 @@ import threading
 import time
 from typing import Optional, Tuple, Any
 
+# Importa o sistema de logging do projeto
+try:
+    from ..utils.logger import ProtocolLogger
+except ImportError:
+    # Para execução direta do arquivo
+    import sys
+    import os
+    sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+    from utils.logger import ProtocolLogger
+
 from utils.packet import RDT20Packet, Packet, PacketError
 from utils.simulator import UnreliableChannel
 from utils.logger import ProtocolLogger
@@ -116,6 +126,7 @@ class RDT20Sender:
         # Registrar transmissão
         self.logger.log_transmission(
             packet_type=packet.get_type_name(),
+            seq_num=None,  # RDT 2.0 não usa números de sequência
             data_size=len(packet.data),
             protocol_overhead=len(serialized) - len(packet.data)
         )
@@ -159,10 +170,10 @@ class RDT20Sender:
             
             # Verificar tipo de resposta
             if self._response_packet.is_ack_packet():
-                self.logger.log_reception("ACK", success=True)
+                self.logger.log_reception("ACK", seq_num=None, success=True)
                 return True
             elif self._response_packet.is_nak_packet():
-                self.logger.log_reception("NAK", success=True)
+                self.logger.log_reception("NAK", seq_num=None, success=True)
                 return False
             else:
                 # Tipo inválido
@@ -307,6 +318,7 @@ class RDT20Receiver:
             # Registrar recepção
             self.logger.log_reception(
                 packet_type=packet.get_type_name(),
+                seq_num=None,  # RDT 2.0 não usa números de sequência
                 data_size=len(packet.data),
                 success=True
             )
@@ -360,6 +372,7 @@ class RDT20Receiver:
             # Registrar transmissão
             self.logger.log_transmission(
                 packet_type=response_packet.get_type_name(),
+                seq_num=None,  # RDT 2.0 não usa números de sequência
                 data_size=0,
                 protocol_overhead=len(serialized)
             )
