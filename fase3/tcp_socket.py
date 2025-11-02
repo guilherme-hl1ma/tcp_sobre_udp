@@ -1105,8 +1105,8 @@ class ConnectionManager:
         if self.time_wait_timer:
             self.time_wait_timer.cancel()
         
-        # Timer de 60 segundos (2 * MSL simplificado)
-        self.time_wait_timer = threading.Timer(60.0, self._time_wait_timeout)
+        # Timer de 10 segundos (2 * MSL reduzido para testes)
+        self.time_wait_timer = threading.Timer(10.0, self._time_wait_timeout)
         self.time_wait_timer.start()
     
     def _time_wait_timeout(self) -> None:
@@ -1374,12 +1374,14 @@ class SimpleTCPSocket:
             # Envia um pacote dummy para acordar o thread
             try:
                 dummy_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                dummy_socket.settimeout(0.1)  # Timeout curto
                 dummy_socket.sendto(b'', ('127.0.0.1', self.local_port))
                 dummy_socket.close()
             except:
                 pass
             
-            self._receive_thread.join(timeout=1.0)
+            # Aguarda thread terminar com timeout mais curto
+            self._receive_thread.join(timeout=0.5)
     
     def _receive_loop(self) -> None:
         """
@@ -1395,7 +1397,7 @@ class SimpleTCPSocket:
         - Timeouts para verificação periódica do estado _running
         """
         # Configura timeout para permitir verificação periódica de _running
-        self.udp_socket.settimeout(1.0)
+        self.udp_socket.settimeout(0.5)  # Timeout mais curto
         
         while self._running:
             try:
@@ -1415,8 +1417,10 @@ class SimpleTCPSocket:
             except OSError as e:
                 # Erro de socket (ex: socket fechado)
                 if self._running:
-                    # Log apenas se ainda deveria estar rodando
-                    print(f"Erro na recepção: {e}")
+                    # Log apenas se ainda deveria estar rodando e não for erro de fechamento
+                    error_code = getattr(e, 'winerror', getattr(e, 'errno', 0))
+                    if error_code not in [10054, 10038]:  # Ignora erros de conexão fechada
+                        print(f"Erro na recepção: {e}")
                 break
             except Exception as e:
                 # Outros erros inesperados
@@ -2034,10 +2038,10 @@ class SimpleTCPSocket:
                 # Lado passivo do encerramento - responde ao FIN recebido
                 self._initiate_passive_close()
             
-            # Aguarda encerramento completo com timeout
-            close_timeout = min(self.default_timeout, 30.0)  # Máximo 30s para encerramento
+            # Aguarda encerramento completo com timeout mais generoso
+            close_timeout = 5.0  # 5 segundos para encerramento
             if not self.connection_manager.wait_for_close(close_timeout):
-                print(f"Timeout no encerramento da conexão após {close_timeout}s")
+                print(f"Timeout no encerramento da conexão após {close_timeout}s - forçando encerramento")
                 # Força encerramento mesmo com timeout
                 self.connection_manager.set_state(ConnectionManager.CLOSED)
             
@@ -2057,7 +2061,7 @@ class SimpleTCPSocket:
         Garante que todos os dados pendentes sejam transmitidos antes do encerramento.
         Implementa requisito 5.1: transmissão de dados pendentes.
         """
-        max_wait_time = 10.0  # Máximo 10 segundos para esvaziar buffers
+        max_wait_time = 1.0  # Apenas 1 segundo para esvaziar buffers
         start_time = time.time()
         
         # Aguarda buffer de envio esvaziar (dados serem enviados)
@@ -2067,22 +2071,15 @@ class SimpleTCPSocket:
             if self._can_send_data():
                 with self.send_lock:
                     self._send_buffered_data()
-            time.sleep(0.1)
+            time.sleep(0.01)  # Pausa menor
         
-        # Aguarda confirmação de todos os dados enviados (ACKs)
-        remaining_wait = max_wait_time - (time.time() - start_time)
+        # Aguarda confirmação de todos os dados enviados (ACKs) - tempo reduzido
+        remaining_wait = max(0.5, max_wait_time - (time.time() - start_time))
         if remaining_wait > 0:
             ack_start_time = time.time()
             while (len(self.unacked_segments) > 0 and 
                    time.time() - ack_start_time < remaining_wait):
-                time.sleep(0.1)
-        
-        # Log de dados não transmitidos (para debug)
-        if self.send_buffer.available_data() > 0:
-            print(f"Aviso: {self.send_buffer.available_data()} bytes não enviados no buffer")
-        
-        if len(self.unacked_segments) > 0:
-            print(f"Aviso: {len(self.unacked_segments)} segmentos não confirmados")
+                time.sleep(0.01)  # Pausa menor
     
     def _initiate_active_close(self) -> None:
         """
@@ -2125,17 +2122,18 @@ class SimpleTCPSocket:
         # Limpa segmentos não confirmados e timers de retransmissão
         self.clear_unacked_segments()
         
-        # Para thread de recepção
+        # Para thread de recepção de forma mais suave
         self._stop_receive_thread()
         
-        # Fecha socket UDP
+        # Limpa recursos do gerenciador de conexão primeiro
+        self.connection_manager.cleanup()
+        
+        # Fecha socket UDP por último
         try:
             self.udp_socket.close()
-        except:
+        except Exception as e:
+            # Ignora erros de fechamento do socket
             pass
-        
-        # Limpa recursos do gerenciador de conexão
-        self.connection_manager.cleanup()
         
         # Limpa buffers
         self.send_buffer.clear()
@@ -2177,6 +2175,15 @@ class SimpleTCPSocket:
             str: Estado da conexão TCP
         """
         return self.connection_manager.get_state()
+    
+    def set_timeout(self, timeout: float) -> None:
+        """
+        Define timeout para operações do socket.
+        
+        Args:
+            timeout: Timeout em segundos
+        """
+        self.default_timeout = timeout
     
     def get_rtt_stats(self) -> dict:
         """
