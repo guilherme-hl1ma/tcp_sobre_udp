@@ -20,6 +20,8 @@ projeto_redes/
 │   ├── test_fase2.py      # Testes Go-Back-N (3 testes)
 │   └── test_fase3.py      # Testes TCP (6 testes)
 ├── utils/                  # Utilitários compartilhados
+│   ├── packet.py          # Classes de pacotes (RDT20, RDT21, Pipeline)
+│   ├── simulator.py       # Simulador de canal (UnreliableChannel, SlidingWindow)
 │   └── logger.py          # Sistema de logging de protocolos
 └── README.MD              # Este arquivo
 ```
