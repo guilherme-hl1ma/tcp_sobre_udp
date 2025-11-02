@@ -242,22 +242,6 @@ print(report)
 
 ## Resolução de Problemas
 
-### Erro "WinError 10054"
-
-Este erro foi corrigido nas versões recentes. Se ainda ocorrer:
-
-- Verifique se as portas não estão em uso
-- Execute os testes individualmente
-- Aguarde alguns segundos entre execuções
-
-### Timeouts em Testes
-
-Se os testes estão falhando por timeout:
-
-- Verifique se não há firewall bloqueando
-- Execute com `-v` para ver progresso detalhado
-- Considere aumentar timeouts em ambientes lentos
-
 ### Performance
 
 Para melhor performance nos testes:
@@ -265,20 +249,3 @@ Para melhor performance nos testes:
 - Execute testes individualmente para análise detalhada
 - Use `--tb=short` para saída mais limpa
 - Monitore uso de CPU/memória em testes de 1MB
-
-## Contribuição
-
-Para contribuir com o projeto:
-
-1. Execute todos os testes antes de submeter alterações
-2. Mantenha compatibilidade com as interfaces existentes
-3. Adicione testes para novas funcionalidades
-4. Documente mudanças significativas
-
-## Status dos Testes
-
-- ✅ **Fase 1**: 17/17 testes passando
-- ✅ **Fase 2**: 3/3 testes passando
-- ✅ **Fase 3**: 6/6 testes passando
-
-**Total**: 26/26 testes passando (100% de sucesso)
