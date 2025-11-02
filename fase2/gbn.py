@@ -577,7 +577,7 @@ class GBNReceiver:
                 return None
             
             # Verifica se número de sequência é o esperado
-            with self.window_condition:
+            with self._lock:
                 if packet.seq_num == self.expected_seq_num:
                     # Pacote correto recebido - processa
                     return self._process_correct_packet(packet, sender_addr)
@@ -672,7 +672,7 @@ class GBNReceiver:
             
             if success:
                 # Atualiza último ACK enviado
-                with self.window_condition:
+                with self._lock:
                     self.last_ack_sent = seq_num
                 
                 # Registra envio de ACK no logger
@@ -696,7 +696,7 @@ class GBNReceiver:
         Args:
             dest_addr: Endereço de destino
         """
-        with self.window_condition:
+        with self._lock:
             if self.last_ack_sent >= 0:
                 # Reenvia último ACK válido
                 self._send_ack(self.last_ack_sent, dest_addr)
@@ -711,7 +711,7 @@ class GBNReceiver:
         Returns:
             int: Próximo número de sequência esperado
         """
-        with self.window_condition:
+        with self._lock:
             return self.expected_seq_num
     
     def get_receiver_state(self) -> Dict[str, Any]:
@@ -721,7 +721,7 @@ class GBNReceiver:
         Returns:
             Dict: Estado do receptor com informações úteis
         """
-        with self.window_condition:
+        with self._lock:
             return {
                 'expected_seq_num': self.expected_seq_num,
                 'last_ack_sent': self.last_ack_sent,
@@ -730,7 +730,7 @@ class GBNReceiver:
     
     def reset(self):
         """Reseta o receptor para estado inicial."""
-        with self.window_condition:
+        with self._lock:
             self.expected_seq_num = 0
             self.last_ack_sent = -1
             self.active = True
