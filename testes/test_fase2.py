@@ -522,11 +522,16 @@ class TestGBNObrigatorios:
     def _save_window_analysis_data(self, results: List[Dict[str, Any]]):
         """Salva dados da análise e plota gráfico: Throughput x Tamanho da Janela."""
         try:
+            # Criar pasta para resultados
+            results_dir = 'resultados_fase2'
+            os.makedirs(results_dir, exist_ok=True)
+            
             # Salvar dados em JSON
             import json
-            with open('window_analysis_results.json', 'w') as f:
+            json_path = os.path.join(results_dir, 'window_analysis_results.json')
+            with open(json_path, 'w') as f:
                 json.dump(results, f, indent=2)
-            print(f"✓ Dados salvos em 'window_analysis_results.json'")
+            print(f"✓ Dados salvos em '{json_path}'")
             
             # Plotar gráfico: Throughput x Tamanho da Janela
             try:
@@ -553,12 +558,12 @@ class TestGBNObrigatorios:
                 plt.xlim(0, max(window_sizes) + 1)
                 plt.ylim(0, max(throughputs) * 1.1)
                 
-                # Salvar gráfico
+                # Salvar apenas PNG
                 plt.tight_layout()
-                plt.savefig('throughput_vs_window_size.png', dpi=300, bbox_inches='tight')
-                plt.savefig('throughput_vs_window_size.pdf', bbox_inches='tight')
+                png_path = os.path.join(results_dir, 'throughput_vs_window_size.png')
+                plt.savefig(png_path, dpi=300, bbox_inches='tight')
                 
-                print(f"✓ Gráfico salvo em 'throughput_vs_window_size.png' e '.pdf'")
+                print(f"✓ Gráfico salvo em '{png_path}'")
                 
                 # Mostrar gráfico (se possível)
                 try:
