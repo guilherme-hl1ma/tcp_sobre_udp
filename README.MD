@@ -101,7 +101,7 @@ python -m pytest testes/test_fase2.py::TestGBNObrigatorios::test_ten_percent_los
 python -m pytest testes/test_fase2.py::TestGBNObrigatorios::test_window_size_analysis -v -s
 ```
 
-#### Fase 3 - TCP Simplificado (6 testes)
+#### Fase 3 - TCP Simplificado (7 testes)
 
 ```bash
 # Todos os testes da Fase 3
@@ -115,13 +115,14 @@ python -m pytest testes/test_fase3.py::TestTCPRetransmission -v -s
 python -m pytest testes/test_fase3.py::TestTCPConnectionClose -v -s
 python -m pytest testes/test_fase3.py::TestTCPPerformance -v -s
 
-# Testes individuais (6 testes)
+# Testes individuais (7 testes)
 python -m pytest testes/test_fase3.py::TestTCPConnectionEstablishment::test_three_way_handshake_connection_establishment -v -s
 python -m pytest testes/test_fase3.py::TestTCPDataTransfer::test_10kb_data_transfer_integrity -v -s
 python -m pytest testes/test_fase3.py::TestTCPFlowControl::test_flow_control_with_small_window -v -s
 python -m pytest testes/test_fase3.py::TestTCPRetransmission::test_retransmission_with_packet_loss -v -s
 python -m pytest testes/test_fase3.py::TestTCPConnectionClose::test_four_way_handshake_connection_close -v -s
 python -m pytest testes/test_fase3.py::TestTCPPerformance::test_1mb_performance_metrics -v -s
+python -m pytest testes/test_fase3.py::TestTCPPerformance::test_tcp_comparison_performance -v -s
 ```
 
 ### Executar Teste Individual
@@ -218,7 +219,7 @@ client.close()
 - Confiabilidade com 10% de perda
 - Análise de tamanho de janela
 
-### Fase 3 (6 testes)
+### Fase 3 (7 testes)
 
 - Estabelecimento de conexão (three-way handshake)
 - Transferência de dados (10KB com verificação de integridade)
@@ -226,6 +227,7 @@ client.close()
 - Retransmissão (20% de perda simulada)
 - Encerramento de conexão (four-way handshake)
 - Métricas de desempenho (1MB)
+- Comparação TCP Simplificado vs TCP Real
 
 ## Logs e Debugging
 

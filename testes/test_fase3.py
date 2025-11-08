@@ -999,6 +999,274 @@ class TestTCPConnectionClose:
 class TestTCPPerformance:
     """Teste obrigatório 6: Desempenho."""
     
+    def test_tcp_comparison_performance(self):
+        """
+        Teste de comparação: TCP Simplificado vs TCP Real (socket nativo Python).
+        Mede throughput, latência e overhead de ambas as implementações.
+        """
+        import threading
+        import time
+        import socket
+        from fase3.tcp_socket import SimpleTCPSocket
+        
+        # Configuração do teste
+        server_port_simple = 9100
+        server_port_native = 9200
+        data_size = 20 * 1024  # 20KB para teste mais rápido e confiável
+        test_timeout = 30.0
+        
+        # Gera dados de teste
+        test_data = b'COMPARE' * (data_size // 7)
+        
+        # Resultados para TCP Simplificado
+        simple_results = {
+            'throughput_kbps': 0,
+            'duration': 0,
+            'data_transferred': 0,
+            'transfer_complete': threading.Event(),
+            'server_ready': threading.Event(),
+            'error': None
+        }
+        
+        # Resultados para TCP Real
+        native_results = {
+            'throughput_kbps': 0,
+            'duration': 0,
+            'data_transferred': 0,
+            'transfer_complete': threading.Event(),
+            'server_ready': threading.Event(),
+            'error': None
+        }
+        
+        # ===== TCP SIMPLIFICADO =====
+        def run_simple_server():
+            server = None
+            conn = None
+            try:
+                server = SimpleTCPSocket(port=server_port_simple)
+                server.listen()
+                simple_results['server_ready'].set()
+                
+                conn = server.accept()
+                start = time.time()
+                
+                received = b''
+                empty_reads = 0
+                max_empty_reads = 100
+                
+                while len(received) < data_size and empty_reads < max_empty_reads:
+                    try:
+                        chunk = conn.recv(2048)  # Chunks menores
+                        if chunk and len(chunk) > 0:
+                            received += chunk
+                            empty_reads = 0  # Reset contador
+                        else:
+                            empty_reads += 1
+                            time.sleep(0.02)  # Pausa curta
+                    except Exception as e:
+                        empty_reads += 1
+                        time.sleep(0.02)
+                
+                end = time.time()
+                simple_results['duration'] = end - start
+                simple_results['data_transferred'] = len(received)
+                simple_results['transfer_complete'].set()
+                
+                # Aguarda antes de fechar
+                time.sleep(1.0)
+                
+            except Exception as e:
+                simple_results['error'] = str(e)
+            finally:
+                try:
+                    if conn:
+                        conn.close()
+                    time.sleep(0.2)
+                    if server:
+                        server.close()
+                except:
+                    pass
+        
+        def run_simple_client():
+            client = None
+            try:
+                if not simple_results['server_ready'].wait(timeout=5.0):
+                    return
+                time.sleep(0.3)
+                
+                client = SimpleTCPSocket(port=0)
+                client.connect(('localhost', server_port_simple))
+                
+                bytes_sent = 0
+                chunk_size = 1024  # Chunks menores para melhor controle
+                
+                while bytes_sent < len(test_data):
+                    chunk_end = min(bytes_sent + chunk_size, len(test_data))
+                    chunk = test_data[bytes_sent:chunk_end]
+                    sent = client.send(chunk)
+                    bytes_sent += sent
+                    time.sleep(0.02)  # Pausa entre envios
+                
+                # Aguarda servidor processar tudo
+                time.sleep(2.0)
+                
+            except Exception as e:
+                simple_results['error'] = str(e)
+            finally:
+                try:
+                    if client:
+                        time.sleep(0.5)
+                        client.close()
+                except:
+                    pass
+        
+        # ===== TCP REAL (NATIVO) =====
+        def run_native_server():
+            server = None
+            conn = None
+            try:
+                server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                server.bind(('127.0.0.1', server_port_native))
+                server.listen(1)
+                native_results['server_ready'].set()
+                
+                conn, addr = server.accept()
+                start = time.time()
+                
+                received = b''
+                while len(received) < data_size:
+                    chunk = conn.recv(4096)
+                    if not chunk:
+                        break
+                    received += chunk
+                
+                end = time.time()
+                native_results['duration'] = end - start
+                native_results['data_transferred'] = len(received)
+                native_results['transfer_complete'].set()
+                
+            except Exception as e:
+                native_results['error'] = str(e)
+            finally:
+                try:
+                    if conn:
+                        conn.close()
+                    if server:
+                        server.close()
+                except:
+                    pass
+        
+        def run_native_client():
+            client = None
+            try:
+                if not native_results['server_ready'].wait(timeout=5.0):
+                    return
+                time.sleep(0.2)
+                
+                client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                client.connect(('127.0.0.1', server_port_native))
+                
+                bytes_sent = 0
+                chunk_size = 2048
+                while bytes_sent < len(test_data):
+                    chunk_end = min(bytes_sent + chunk_size, len(test_data))
+                    sent = client.send(test_data[bytes_sent:chunk_end])
+                    bytes_sent += sent
+                
+                # Aguarda servidor processar
+                time.sleep(0.5)
+                
+            except Exception as e:
+                native_results['error'] = str(e)
+            finally:
+                try:
+                    if client:
+                        client.close()
+                except:
+                    pass
+        
+        try:
+            print("\n" + "="*60)
+            print("TESTE COMPARATIVO: TCP Simplificado vs TCP Real")
+            print("="*60)
+            
+            # Testa TCP Simplificado
+            print("\n[1/2] Testando TCP Simplificado...")
+            simple_server_thread = threading.Thread(target=run_simple_server, daemon=True)
+            simple_client_thread = threading.Thread(target=run_simple_client, daemon=True)
+            
+            simple_server_thread.start()
+            time.sleep(0.1)
+            simple_client_thread.start()
+            
+            simple_results['transfer_complete'].wait(timeout=test_timeout)
+            simple_server_thread.join(timeout=3.0)
+            simple_client_thread.join(timeout=3.0)
+            
+            # Calcula throughput TCP Simplificado
+            if simple_results['duration'] > 0:
+                simple_results['throughput_kbps'] = (simple_results['data_transferred'] / simple_results['duration']) / 1024
+            
+            # Aguarda limpeza completa antes do próximo teste
+            time.sleep(2.0)
+            
+            # Testa TCP Real
+            print("[2/2] Testando TCP Real (socket nativo)...")
+            native_server_thread = threading.Thread(target=run_native_server, daemon=True)
+            native_client_thread = threading.Thread(target=run_native_client, daemon=True)
+            
+            native_server_thread.start()
+            time.sleep(0.1)
+            native_client_thread.start()
+            
+            native_results['transfer_complete'].wait(timeout=test_timeout)
+            native_server_thread.join(timeout=3.0)
+            native_client_thread.join(timeout=3.0)
+            
+            # Calcula throughput TCP Real
+            if native_results['duration'] > 0:
+                native_results['throughput_kbps'] = (native_results['data_transferred'] / native_results['duration']) / 1024
+            
+            # Validações
+            assert simple_results['error'] is None, f"Erro no TCP Simplificado: {simple_results['error']}"
+            assert native_results['error'] is None, f"Erro no TCP Real: {native_results['error']}"
+            assert simple_results['data_transferred'] >= data_size * 0.9, "TCP Simplificado: transferência incompleta"
+            assert native_results['data_transferred'] >= data_size * 0.9, "TCP Real: transferência incompleta"
+            
+            # Calcula diferença de performance
+            if simple_results['throughput_kbps'] > 0 and native_results['throughput_kbps'] > 0:
+                performance_ratio = native_results['throughput_kbps'] / simple_results['throughput_kbps']
+            else:
+                performance_ratio = 0
+            
+            # Exibe resultados comparativos
+            print("\n" + "="*60)
+            print("RESULTADOS DA COMPARAÇÃO")
+            print("="*60)
+            print(f"\nTCP SIMPLIFICADO:")
+            print(f"  - Dados transferidos: {simple_results['data_transferred']} bytes ({simple_results['data_transferred']//1024} KB)")
+            print(f"  - Tempo: {simple_results['duration']:.3f}s")
+            print(f"  - Throughput: {simple_results['throughput_kbps']:.2f} KB/s")
+            
+            print(f"\nTCP REAL (Socket Nativo):")
+            print(f"  - Dados transferidos: {native_results['data_transferred']} bytes ({native_results['data_transferred']//1024} KB)")
+            print(f"  - Tempo: {native_results['duration']:.3f}s")
+            print(f"  - Throughput: {native_results['throughput_kbps']:.2f} KB/s")
+            
+            print(f"\nCOMPARAÇÃO:")
+            print(f"  - TCP Real é {performance_ratio:.1f}× mais rápido")
+            print(f"  - Diferença de tempo: {abs(native_results['duration'] - simple_results['duration']):.3f}s")
+            print(f"  - Overhead do TCP Simplificado: {((simple_results['duration'] / native_results['duration']) - 1) * 100:.1f}%")
+            print("="*60 + "\n")
+            
+            # Teste passa se ambos funcionaram
+            print("[OK] Comparacao de performance executada com sucesso")
+            
+        except Exception as e:
+            print(f"\nErro no teste comparativo: {e}")
+            raise
+    
     def test_1mb_performance_metrics(self):
         """
         Teste obrigatório 13.6: Transferir arquivo grande.
