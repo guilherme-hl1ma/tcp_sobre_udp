@@ -3,7 +3,7 @@
 Cliente TCP Simplificado - Exemplo de uso do SimpleTCPSocket
 
 Este arquivo demonstra como usar a classe SimpleTCPSocket do lado cliente
-para estabelecer conexões e transferir dados conforme requisitos 1.1, 2.1 e 2.3.
+para estabelecer conexões e transferir dados.
 
 Funcionalidades demonstradas:
 - Estabelecimento de conexão (three-way handshake)
@@ -19,7 +19,6 @@ try:
     from .tcp_socket import SimpleTCPSocket, ConnectionTimeout, ConnectionRefused
     from ..utils.logger import ProtocolLogger
 except ImportError:
-    # Para execução direta do arquivo
     from tcp_socket import SimpleTCPSocket, ConnectionTimeout, ConnectionRefused
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -34,10 +33,9 @@ def run_client(server_host: str = 'localhost', server_port: int = 8080,
     """
     Executa cliente TCP simplificado.
     
-    Implementa requisitos:
-    - 1.1: Estabelecimento de conexão do lado cliente
-    - 2.1: Envio de dados através da conexão
-    - 2.3: Recebimento de dados ordenados
+    - Estabelecimento de conexão do lado cliente
+    - Envio de dados através da conexão
+    - Recebimento de dados ordenados
     
     Args:
         server_host: Endereço do servidor
@@ -56,7 +54,7 @@ def run_client(server_host: str = 'localhost', server_port: int = 8080,
             print(f"Cliente iniciado na porta {local_addr[1]}")
             print(f"Conectando ao servidor {server_host}:{server_port}...")
         
-        # Requisito 1.1: Estabelece conexão TCP (three-way handshake)
+        # Estabelece conexão TCP (three-way handshake)
         start_time = time.time()
         client_socket.connect((server_host, server_port))
         connection_time = time.time() - start_time
@@ -66,7 +64,7 @@ def run_client(server_host: str = 'localhost', server_port: int = 8080,
             print(f"Estado da conexão: {client_socket.get_connection_state()}")
             print(f"Endereço do peer: {client_socket.get_peer_address()}")
         
-        # Requisito 2.1: Envia dados através da conexão TCP
+        # Envia dados através da conexão TCP
         message_bytes = message.encode('utf-8')
         
         if verbose:
@@ -80,7 +78,7 @@ def run_client(server_host: str = 'localhost', server_port: int = 8080,
         # Aguarda um pouco para garantir que dados sejam processados
         time.sleep(0.1)
         
-        # Requisito 2.3: Recebe resposta do servidor (dados ordenados)
+        # Recebe resposta do servidor (dados ordenados)
         if verbose:
             print("\nAguardando resposta do servidor...")
         

@@ -8,11 +8,9 @@ import threading
 import time
 from typing import Optional, Tuple, Any
 
-# Importa o sistema de logging do projeto
 try:
     from ..utils.logger import ProtocolLogger
 except ImportError:
-    # Para execução direta do arquivo
     import sys
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))

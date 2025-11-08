@@ -5,11 +5,9 @@ import time
 import random
 from typing import Optional, Tuple
 
-# Importa o sistema de logging do projeto
 try:
     from ..utils.logger import ProtocolLogger
 except ImportError:
-    # Para execução direta do arquivo
     import sys
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -775,7 +773,6 @@ class ConnectionManager:
             self.peer_seq_num = segment.seq_num
             self.ack_num = segment.seq_num + 1  # SYN consome um número de sequência
             
-            # Gera ISN (Initial Sequence Number) aleatório conforme requisitos (0-1000)
             self.seq_num = random.randint(0, 1000)
             
             # Responde com SYN-ACK
@@ -842,10 +839,10 @@ class ConnectionManager:
     def _handle_established_state(self, segment: TCPSegment, addr: Tuple[str, int]) -> None:
         """
         Processa segmentos no estado ESTABLISHED.
-        Implementa requisito 5.2: trata FIN recebido enviando ACK.
+        Trata FIN recebido enviando ACK.
         """
         if segment.has_flag(TCP_FIN):
-            # Requisito 5.2: Peer iniciou encerramento - trata FIN recebido enviando ACK
+            # Peer iniciou encerramento - trata FIN recebido enviando ACK
             print(f"FIN recebido do peer {addr} - iniciando encerramento passivo")
             
             # Processa dados se houver no mesmo segmento
@@ -874,7 +871,7 @@ class ConnectionManager:
     def _handle_fin_wait_1_state(self, segment: TCPSegment, addr: Tuple[str, int]) -> None:
         """
         Processa segmentos no estado FIN_WAIT_1.
-        Implementa requisito 5.3: transiciona para CLOSED após ACK final.
+        Transiciona para CLOSED após ACK final.
         """
         if segment.has_flag(TCP_FIN) and segment.has_flag(TCP_ACK):
             # FIN-ACK simultâneo - peer enviou FIN e ACK do nosso FIN no mesmo segmento
@@ -945,7 +942,7 @@ class ConnectionManager:
     def _handle_fin_wait_2_state(self, segment: TCPSegment, addr: Tuple[str, int]) -> None:
         """
         Processa segmentos no estado FIN_WAIT_2.
-        Implementa requisito 5.3: transiciona para CLOSED após ACK final.
+        Transiciona para CLOSED após ACK final.
         """
         if segment.has_flag(TCP_FIN):
             # Recebeu FIN do peer - completa four-way handshake
@@ -978,7 +975,7 @@ class ConnectionManager:
     def _handle_close_wait_state(self, segment: TCPSegment, addr: Tuple[str, int]) -> None:
         """
         Processa segmentos no estado CLOSE_WAIT.
-        Implementa requisito 5.3: aguarda aplicação chamar close() para enviar próprio FIN.
+        Aguarda aplicação chamar close() para enviar próprio FIN.
         """
         # No estado CLOSE_WAIT, aguarda aplicação chamar close()
         # Pode ainda processar ACKs de dados pendentes e dados restantes
@@ -1000,7 +997,7 @@ class ConnectionManager:
         """
         Processa segmentos no estado CLOSING.
         Estado especial quando ambos os lados enviam FIN simultaneamente.
-        Implementa requisito 5.3: transiciona para CLOSED após ACK final.
+        Transiciona para CLOSED após ACK final.
         """
         if segment.has_flag(TCP_ACK):
             # ACK do nosso FIN - completa encerramento simultâneo
@@ -1027,14 +1024,14 @@ class ConnectionManager:
     def _handle_last_ack_state(self, segment: TCPSegment, addr: Tuple[str, int]) -> None:
         """
         Processa segmentos no estado LAST_ACK.
-        Implementa requisito 5.3: transiciona para CLOSED após ACK final.
+        Transiciona para CLOSED após ACK final.
         """
         if segment.has_flag(TCP_ACK):
             # ACK do nosso FIN - completa four-way handshake do lado passivo
             if segment.ack_num == self.seq_num:
                 print(f"ACK final recebido em LAST_ACK de {addr} - four-way handshake completo")
                 
-                # Requisito 5.3: Transiciona para CLOSED após ACK final
+                # Transiciona para CLOSED após ACK final
                 self.set_state(self.CLOSED)
                 
                 print(f"Conexão encerrada - transicionado para CLOSED")
@@ -1211,7 +1208,6 @@ class SimpleTCPSocket:
         self.rtt_manager = RTTManager()
         self.connection_manager = ConnectionManager(self)
         
-        # Números de sequência iniciais aleatórios (0-1000 conforme requisitos)
         self.initial_seq_num = random.randint(0, 1000)
         self.connection_manager.seq_num = self.initial_seq_num
         
@@ -1220,7 +1216,7 @@ class SimpleTCPSocket:
         self._running = False
         self._receive_lock = threading.Lock()
         
-        # Controle de janela de recepção (Requisito 3.1 - janela inicial de 4096 bytes)
+        # Controle de janela de recepção (janela inicial de 4096 bytes)
         self.receive_window_size = 4096  # Janela inicial de 4KB
         self.advertised_window_size = 4096  # Janela anunciada para o peer
         
@@ -1243,7 +1239,7 @@ class SimpleTCPSocket:
         self.last_byte_sent = 0
         self.last_byte_acked = 0
         
-        # Controle de retransmissão (Requisitos 4.2, 4.3)
+        # Controle de retransmissão
         self.max_retransmit_attempts = 5  # Limite de tentativas de retransmissão
         self.retransmit_backoff_factor = 2.0  # Fator de backoff exponencial
         self.duplicate_ack_count = 0  # Contador de ACKs duplicados
@@ -1387,7 +1383,7 @@ class SimpleTCPSocket:
         """
         Loop principal de recepção de segmentos UDP.
         
-        Implementa thread separada para receber segmentos UDP conforme requisito 2.2 e 2.5.
+        Implementa thread separada para receber segmentos UDP.
         Processa segmentos recebidos de acordo com o estado da conexão e implementa
         sincronização thread-safe com o ConnectionManager.
         
@@ -1433,9 +1429,9 @@ class SimpleTCPSocket:
         """
         Processa segmento TCP recebido de forma thread-safe.
         
-        Implementa processamento de segmentos de acordo com o estado da conexão
-        conforme requisitos 2.2 e 2.5. Utiliza sincronização thread-safe e
-        integra com o ConnectionManager para processamento adequado.
+        Implementa processamento de segmentos de acordo com o estado da conexão.
+        Utiliza sincronização thread-safe e integra com o ConnectionManager 
+        para processamento adequado.
         
         Args:
             data: Dados do segmento TCP recebido
@@ -1507,7 +1503,6 @@ class SimpleTCPSocket:
         # Inicia thread de recepção
         self._start_receive_thread()
         
-        # Gera número de sequência inicial aleatório (0-1000 conforme requisitos)
         self.initial_seq_num = random.randint(0, 1000)
         self.connection_manager.seq_num = self.initial_seq_num
         
@@ -1597,8 +1592,6 @@ class SimpleTCPSocket:
             self.next_expected_seq = self.connection_manager.ack_num
             self.last_byte_acked = self.connection_manager.seq_num
             
-            # Em uma implementação completa, criaria um novo socket para a conexão
-            # Por simplicidade, retorna este próprio socket
             return self
             
         except Exception as e:
@@ -1610,7 +1603,6 @@ class SimpleTCPSocket:
         """
         Envia dados através da conexão TCP.
         Implementa segmentação de dados, números de sequência corretos e timers para retransmissão.
-        Respeita controle de fluxo conforme requisitos 3.3 e 3.4.
         
         Args:
             data: Dados a enviar
@@ -1640,16 +1632,13 @@ class SimpleTCPSocket:
     def _send_buffered_data(self) -> None:
         """
         Envia dados do buffer de envio respeitando controle de fluxo.
-        Implementa requisitos 3.3 e 3.4: respeita window size do receptor e 
-        verifica LastByteSent - LastByteAcked ≤ rwnd.
         Segmenta dados em pacotes TCP com números de sequência corretos.
         """
         while True:
-            # Requisito 3.3 e 3.4: Verifica controle de fluxo
             # LastByteSent - LastByteAcked ≤ rwnd (receive window do peer)
             bytes_in_flight = self.last_byte_sent - self.last_byte_acked
             
-            # Se janela do peer for 0, pausa envio (requisito 3.4)
+            # Se janela do peer for 0, pausa envio
             if self.peer_window_size == 0:
                 break  # Janela fechada, aguarda window update
             
@@ -1705,7 +1694,7 @@ class SimpleTCPSocket:
     def _start_retransmission_timer(self, segment: TCPSegment, retransmit_count: int = 0) -> None:
         """
         Inicia timer para retransmissão de segmento.
-        Implementa detecção de timeout usando TimeoutInterval calculado (Requisitos 4.2, 4.3).
+        Implementa detecção de timeout usando TimeoutInterval calculado.
         
         Args:
             segment: Segmento TCP enviado
@@ -1740,7 +1729,7 @@ class SimpleTCPSocket:
     def _handle_timeout(self, seq_num: int) -> None:
         """
         Trata timeout de segmento não confirmado.
-        Implementa retransmissão automática com limite de tentativas (Requisito 4.3).
+        Implementa retransmissão automática com limite de tentativas.
         
         Args:
             seq_num: Número de sequência do segmento que sofreu timeout
@@ -1896,7 +1885,7 @@ class SimpleTCPSocket:
         old_window_size = self.peer_window_size
         
         with self.send_lock:
-            # Atualiza janela do peer (requisito 3.3)
+            # Atualiza janela do peer
             self.peer_window_size = segment.window_size
             
             # Detecta ACKs duplicados para fast retransmit
@@ -2004,7 +1993,6 @@ class SimpleTCPSocket:
     def close(self) -> None:
         """
         Encerra a conexão TCP de forma controlada.
-        Implementa requisitos 5.1, 5.4, 5.5:
         - Garante transmissão de dados pendentes antes de enviar FIN
         - Inicia four-way handshake enviando FIN
         - Gerencia estados de encerramento adequadamente
@@ -2026,11 +2014,11 @@ class SimpleTCPSocket:
             return
         
         try:
-            # Requisito 5.1: Garante transmissão de dados pendentes
+            # Garante transmissão de dados pendentes
             self._ensure_pending_data_transmitted()
             
-            # Requisito 5.4: Inicia four-way handshake enviando FIN
-            # Requisito 5.5: Gerencia estados de encerramento
+            # Inicia four-way handshake enviando FIN
+            # Gerencia estados de encerramento
             if current_state == ConnectionManager.ESTABLISHED:
                 # Lado ativo do encerramento - envia FIN primeiro
                 self._initiate_active_close()
@@ -2059,7 +2047,6 @@ class SimpleTCPSocket:
     def _ensure_pending_data_transmitted(self) -> None:
         """
         Garante que todos os dados pendentes sejam transmitidos antes do encerramento.
-        Implementa requisito 5.1: transmissão de dados pendentes.
         """
         max_wait_time = 1.0  # Apenas 1 segundo para esvaziar buffers
         start_time = time.time()
@@ -2084,7 +2071,7 @@ class SimpleTCPSocket:
     def _initiate_active_close(self) -> None:
         """
         Inicia encerramento ativo da conexão (lado que chama close() primeiro).
-        Implementa requisitos 5.4 e 5.5: envia FIN e gerencia transição de estado.
+        Envia FIN e gerencia transição de estado.
         """
         if self.connection_manager.peer_address:
             # Envia FIN para iniciar four-way handshake
@@ -2101,7 +2088,7 @@ class SimpleTCPSocket:
     def _initiate_passive_close(self) -> None:
         """
         Inicia encerramento passivo da conexão (resposta ao FIN recebido).
-        Implementa requisitos 5.2 e 5.3: envia FIN após receber FIN do peer.
+        Envia FIN após receber FIN do peer.
         """
         if self.connection_manager.peer_address:
             # Envia nosso FIN em resposta ao FIN recebido
@@ -2201,7 +2188,6 @@ class SimpleTCPSocket:
     def _calculate_receive_window(self) -> int:
         """
         Calcula o tamanho da janela de recepção baseado no espaço disponível no buffer.
-        Implementa requisitos 3.1, 3.2 e 3.5 para anunciar window size correto.
         
         Returns:
             int: Tamanho da janela de recepção em bytes
@@ -2210,7 +2196,7 @@ class SimpleTCPSocket:
         available_space = self.receive_buffer.available_space()
         
         # A janela anunciada é o espaço disponível no buffer
-        # Requisito 3.5: quando buffer está cheio, anuncia janela 0
+        #   Quando buffer está cheio, anuncia janela 0
         self.advertised_window_size = available_space
         
         return available_space
@@ -2218,7 +2204,6 @@ class SimpleTCPSocket:
     def _can_send_data(self) -> bool:
         """
         Verifica se é possível enviar dados respeitando controle de fluxo.
-        Implementa requisito 3.3: LastByteSent - LastByteAcked ≤ rwnd
         
         Returns:
             bool: True se pode enviar dados
@@ -2327,7 +2312,6 @@ class SimpleTCPSocket:
     def retransmit_all_unacked(self) -> int:
         """
         Força retransmissão de todos os segmentos não confirmados.
-        Útil para recuperação de falhas de rede ou testes.
         
         Returns:
             int: Número de segmentos retransmitidos
@@ -2394,23 +2378,6 @@ class SimpleTCPSocket:
         """
         self.protocol_logger.end_session()
         return self.protocol_logger.get_statistics()
-    
-    def export_protocol_logs(self, filename: str):
-        """
-        Exporta logs do protocolo para arquivo CSV.
-        
-        Args:
-            filename: Nome do arquivo CSV
-        """
-        self.protocol_logger.export_events_csv(filename)
-        with self.send_lock:
-            for seq_num, segment_info in self.unacked_segments.items():
-                if len(segment_info) >= 3 and segment_info[2]:
-                    segment_info[2].cancel()  # Cancela timer
-            
-            self.unacked_segments.clear()
-            self.duplicate_ack_count = 0
-            self.last_ack_received = 0
     
     def set_timeout(self, timeout: float) -> None:
         """

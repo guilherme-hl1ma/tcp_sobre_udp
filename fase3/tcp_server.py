@@ -3,7 +3,7 @@
 Servidor TCP Simplificado - Exemplo de uso do SimpleTCPSocket
 
 Este arquivo demonstra como usar a classe SimpleTCPSocket do lado servidor
-para aceitar conexões e transferir dados conforme requisitos 1.2, 2.1 e 2.3.
+para aceitar conexões e transferir dados.
 
 Funcionalidades demonstradas:
 - Modo de escuta para conexões entrantes
@@ -21,7 +21,6 @@ try:
     from .tcp_socket import SimpleTCPSocket, ConnectionTimeout
     from ..utils.logger import ProtocolLogger
 except ImportError:
-    # Para execução direta do arquivo
     from tcp_socket import SimpleTCPSocket, ConnectionTimeout
     import os
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -34,10 +33,6 @@ server_logger = ProtocolLogger('TCPServer')
 def handle_client(client_socket: SimpleTCPSocket, client_addr: tuple, verbose: bool = False):
     """
     Trata conexão de um cliente específico.
-    
-    Implementa requisitos:
-    - 2.1: Envio de dados através da conexão
-    - 2.3: Recebimento de dados ordenados
     
     Args:
         client_socket: Socket da conexão com o cliente
@@ -54,7 +49,7 @@ def handle_client(client_socket: SimpleTCPSocket, client_addr: tuple, verbose: b
         
         while client_socket.is_connected():
             try:
-                # Requisito 2.3: Recebe dados do cliente (ordenados por sequência)
+                # Recebe dados do cliente (ordenados por sequência)
                 data = client_socket.recv(1024)
                 
                 if not data:
@@ -72,7 +67,7 @@ def handle_client(client_socket: SimpleTCPSocket, client_addr: tuple, verbose: b
                 else:
                     print(f"Cliente {client_addr}: {message}")
                 
-                # Requisito 2.1: Envia resposta ao cliente
+                # Envia resposta ao cliente
                 response = f"Servidor recebeu mensagem {message_count}: '{message}'"
                 response_bytes = response.encode('utf-8')
                 
@@ -123,10 +118,9 @@ def run_server(port: int = 8080, verbose: bool = False, single_client: bool = Fa
     """
     Executa servidor TCP simplificado.
     
-    Implementa requisitos:
-    - 1.2: Modo de escuta e aceitação de conexões do lado servidor
-    - 2.1: Envio de dados através da conexão
-    - 2.3: Recebimento de dados ordenados
+    - Modo de escuta e aceitação de conexões do lado servidor
+    - Envio de dados através da conexão
+    - Recebimento de dados ordenados
     
     Args:
         port: Porta para escutar conexões
@@ -146,7 +140,7 @@ def run_server(port: int = 8080, verbose: bool = False, single_client: bool = Fa
         else:
             print(f"Servidor TCP escutando na porta {port}")
         
-        # Requisito 1.2: Coloca socket em modo de escuta
+        # Coloca socket em modo de escuta
         server_socket.listen()
         
         if verbose:
@@ -157,7 +151,7 @@ def run_server(port: int = 8080, verbose: bool = False, single_client: bool = Fa
         
         while True:
             try:
-                # Requisito 1.2: Aceita conexão entrante (three-way handshake)
+                # Aceita conexão entrante (three-way handshake)
                 if verbose:
                     print("\nAguardando nova conexão...")
                 

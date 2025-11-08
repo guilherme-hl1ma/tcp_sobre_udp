@@ -565,11 +565,10 @@ class TestGBNObrigatorios:
                 
                 print(f"✓ Gráfico salvo em '{png_path}'")
                 
-                # Mostrar gráfico (se possível)
                 try:
                     plt.show()
                 except:
-                    pass  # Pode falhar em ambientes sem display
+                    pass
                     
             except ImportError:
                 print(f"Aviso: matplotlib não disponível - gráfico não plotado")
